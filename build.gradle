@@ -2,7 +2,7 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.3.0'
 	id 'io.spring.dependency-management' version '1.1.5'
-	id 'org.asciidoctor.jvm.convert' version '3.3.2' // (1) asciidoctor 플러그인 적용
+	id 'org.asciidoctor.jvm.convert' version '3.3.2' // (1) plugin
 }
 
 group = 'com.son'
@@ -16,12 +16,9 @@ configurations {
 	compileOnly {
 		extendsFrom annotationProcessor
 	}
-	asciidoctorExt // (2) // asciidoctorExt에 대한 종속성 구성 선언
+	asciidoctorExt // (2) // asciidoctorExt Configuration
 }
 
-ext{
-	set('snippetsDir', file("build/generated-snippets")) // (3) 스니펫 생성 디렉토리 설정
-}
 
 repositories {
 	mavenCentral()
@@ -34,45 +31,41 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
-	asciidoctorExt 'org.springframework.restdocs:spring-restdocs-asciidoctor' // (2)  asciidoctorExt에 의존성 추가
-	testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc' // (4) MockMvc 의존성 추가
+	asciidoctorExt 'org.springframework.restdocs:spring-restdocs-asciidoctor' // (3)  asciidoctorExt에 의존성 추가
+	testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc' // (3.5) MockMvc 의존성 추가
 }
 
-tasks.named('testClasses') { // (1)
-	doFirst {
-		delete file('build/docs/asciidoc')
-	}
+ext{
+	set('snippetsDir', file("build/generated-snippets")) // (4) 스니펫 생성 디렉토리 설정
 }
+
 
 tasks.named('test') {
 	useJUnitPlatform()
-	outputs.dir snippetsDir // (3) // 스니펫 생성 test 테스크 설정
-	finalizedBy asciidoctor // (2)
+	outputs.dir snippetsDir // (5) 출력 디렉토리 설정
 }
 
 tasks.named('asciidoctor') {
-	dependsOn test // (10) test 테스크 후 asciidoctor 실행 설정
-	configurations 'asciidoctorExt'  // (7) asciidoctor 확장 설정
-	inputs.dir snippetsDir // (9) 스니펫 위치 설정
-	finalizedBy copyDocument // (3)
-	doFirst { // (4)
-		delete file('src/main/resources/static/docs')
-	}
+	configurations 'asciidoctorExt'  // (6) asciidoctorExt 사용
+	baseDirFollowsSourceFile() // (7)
+	inputs.dir snippetsDir // (8) input 위치, 스니펫 위치 설정
+	dependsOn test // (9) build시 test -> asciidoctor
+}
+
+asciidoctor.doFirst {
+	delete file('src/main/resources/static/docs') // (10)
 }
 
 
-task copyDocument(type: Copy) { // (12)
-	dependsOn asciidoctor
+task createDocumnet(type: Copy){ // (11)
+	dependsOn asciidoctor // (12)
 	from file("build/docs/asciidoc")
-	into file("src/main/resources/static/docs")
+	into file("src/main/resources/static")
 }
 
-bootJar { // URL로 접속해 문서를 확인
-	dependsOn asciidoctor
-	doFirst {
-		delete file('static/docs')
-	}
-	from("${asciidoctor.outputDir}") {
+bootJar { // (13)
+	dependsOn createDocumnet // (13)
+	from("${asciidoctor.outputDir}") { -> // (14)
 		into 'static/docs'
 	}
 }
